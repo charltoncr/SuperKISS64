@@ -1,0 +1,95 @@
+TYPES
+
+type SK64 struct {
+	Carry  uint64   `xml:"Carry"`
+	Xcng   uint64   `xml:"Xcng"`
+	Xs     uint64   `xml:"Xs"`
+	Index  uint64   `xml:"Index"`
+	Q      []uint64 `xml:"Q"`
+	Seeded bool     `xml:"Seeded"`
+}
+    SK64 is the state for SuperKISS64 methods. SuperKISS64's period is more than
+    10^397524.
+
+func NewSuperKISS64(seed int64) *SK64
+    NewSuperKISS64 allocates a new SuperKISS64 PRNG. Parameter seed determines
+    whether to initialize for testing or to a state based on math/rand.Uint64.
+    Seed with 0 for testing; use any other int64 seed otherwise. To "randomly"
+    seed, use uint64(time.Now().UTC().UnixNano()) as the argument for seed. If a
+    larger number of starting states is desired, use NewSuperKISS64Array or
+    NewSuperKISS64Rand. NewSuperKISS64 may be wrapped by math/rand.New as in
+    this example:
+
+        import "math/rand"
+        r := rand.New(NewSuperKISS64(seed))
+
+    Then r can use methods provided by math/rand, such as r.Int31n() and
+    r.Shuffle().
+
+func NewSuperKISS64Array(q []uint64) *SK64
+    NewSuperKISS64Array allocates a new SuperKISS64 PRNG and initializes it with
+    array q. Array q should contain QSIZE64 or more "random" values, although
+    fewer or more numbers are acceptable. NewSuperKISS64Array may be wrapped by
+    math/rand.New as in this example:
+
+        import "math/rand"
+        r := rand.New(NewSuperKISS64Array(q))
+
+    Then r can use methods provided by math/rand, such as r.Int31n() and
+    r.Shuffle().
+
+func NewSuperKISS64Rand() *SK64
+    NewSuperKISS64Rand allocates a new SuperKISS64 PRNG and initializes it with
+    random numbers from crypto/rand. This does NOT make SuperKISS64
+    cryptographically secure. It provides easy access to all possible
+    SuperKISS64 sequences. NewSuperKISS64Rand may be wrapped by math/rand.New as
+    in this example:
+
+        import "math/rand"
+        r := rand.New(NewSuperKISS64Rand())
+
+    Then r can use methods provided by math/rand, such as r.Int31n() and
+    r.Shuffle().
+
+func SK64LoadState(infile string) (r *SK64, err error)
+    SK64LoadState returns a pointer to a SuperKISS64 state read from an XML file
+    that was written earlier with SaveState. (nil, err) is returned if an error
+    occurs.
+
+func (r *SK64) Float64() float64
+    Float64 provides a uniformly-distributed, pseudorandom float64 value in
+    range [0.0,1.0) from SuperKISS64. It assumes IEEE 754-1985 or later floating
+    point.
+
+func (r *SK64) Int63() int64
+    Int63 returns a uniformly distributed pseudorandom number [0,63) from
+    SuperKISS64. This method implements the math/rand.Source interface.
+
+func (r *SK64) Read(p []byte) (n int, err error)
+    Read fills p with pseudorandom bytes from SuperKISS64. This method
+    implements the io.Reader interface. The returned length n is always len(p)
+    and err is always nil.
+
+func (r *SK64) SaveState(outfile string) (err error)
+    SaveState saves the state of SuperKISS64 PRNG r to file outfile in XML.
+
+func (r *SK64) Seed(seed int64)
+    Seed initializes a SuperKISS64 instance with seed. Call with seed == 0 for
+    util_test.go:TestSuperKISS64. Call with seed of any int64 value (including
+    0) otherwise.
+
+func (r *SK64) SeedArray(array []uint64)
+    SeedArray provides a full range of repeatable initializations (Seed has only
+    2^63-1 starting points with math/rand). Call SeedArray with a pointer to an
+    array of one or more random numbers. It is best to call SeedArray with
+    QSIZE64 random numbers, although any number of values is acceptable.
+
+func (r *SK64) SeedFromCrypto()
+    SeedFromCrypto does NOT make SuperKISS64 cryptographically secure. It
+    initializes SuperKISS64 with random numbers from crypto/rand. SeedFromCrypto
+    provides easy access to all possible SuperKISS64 sequences.
+
+func (r *SK64) Uint64() (result uint64)
+    Uint64 returns a 64-bit, uniformly distributed pseudorandom number from
+    SuperKISS64. This method implements the math/rand.Source64 interface.
+
