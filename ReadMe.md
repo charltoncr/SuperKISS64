@@ -2,7 +2,7 @@
 
 SuperKISS64 is an extremely long period (more than 10^397524) pseudorandom number 
 generator by George Marsaglia, from 
-[http://forums.silverfrost.com/viewtopic.php?t=1480](http://forums.silverfrost.com/viewtopic.php?t=1480)
+[http://forums.silverfrost.com/viewtopic.php?t=1480](http://forums.silverfrost.com/viewtopic.php?t=1480) (named SUPRKISS64.c by Marsaglia)
 posted 2009-11-22, modified and ported to Go by Ron Charlton 2021-06-03.
 
 For math only see
