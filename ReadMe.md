@@ -11,7 +11,8 @@ For math only see
 SuperKISS64 may be wrapped by math/rand.New; it implements math/rand Source and
 Source64.  It also implements an io.Reader.
 
-cryptosource.go is used only to initialize SuperKISS64. It doesn't make SuperKISS64
-cryptographically secure. cryptosource.go may be used independent of SuperKISS64
-if desired.  It too implements math/rand Source and Source64 and may be wrapped
-by math/rand.New.
+cryptosource.go is used only to initialize SuperKISS64. It doesn't make
+SuperKISS64 cryptographically secure.
+cryptosource.go may be used independent of SuperKISS64
+if desired.  It too implements math/rand Source, Source64 and io.Reader, and
+may be wrapped by math/rand.New.
