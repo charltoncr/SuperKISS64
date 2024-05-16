@@ -1,4 +1,4 @@
-// $Id: SuperKISS64_test.go,v  ron Exp $
+// $Id: SuperKISS64_test.go,v 1.2 2024-05-16 13:41:39-04 ron Exp $
 
 package SuperKISS64
 
@@ -38,7 +38,7 @@ const alpha = 0.00001 // acceptable p-value limitpackage SuperKISS64
 	anywhere, for any reason, absolutely free of charge.
 */
 
-// $Id: pvalue.go,v 1.25 2021-04-26 09:20:08-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.2 2024-05-16 13:41:39-04 ron Exp $
 
 /*
 c:\Users\Ron\go\src>go run TestPValue.go 255 160
@@ -258,6 +258,36 @@ func TestSK64SaveLoadState(t *testing.T) {
 		if q[i] != n {
 			t.Errorf("want %v but got %v", q[i], n)
 		}
+	}
+	os.Remove(fName)
+}
+
+func TestSK64SaveLoadRandState(t *testing.T) {
+	fName := "SuperKISS64SaveLoadRandTest.tmp"
+	c := NewSuperKISS64Rand()
+	r := rand.New(c)
+	for i := 0; i < 1000; i++ {
+		r.Uint64()
+	}
+
+	err := c.SaveState(fName) // save SK64 state after use by math.Rand
+	if err != nil {
+		t.Fatalf("SaveState returned error: %v", err)
+	}
+
+	p := r.Uint64() // next value after saving state
+	for i := 0; i < 2000; i++ {
+		r.Uint64() // change state by running PRNG
+	}
+
+	d, err1 := SK64LoadState(fName)
+	if err1 != nil {
+		t.Fatalf("LoadState returned error: %v", err)
+	}
+	r = rand.New(d) // new math.Rand with same state as saved earlier
+	n := r.Uint64()
+	if p != n {
+		t.Errorf("want %v but got %v", p, n)
 	}
 	os.Remove(fName)
 }

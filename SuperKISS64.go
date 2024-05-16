@@ -28,7 +28,7 @@ get the result I do. It should take around 20 seconds.
 
 // Ron Charlton (RC) code:
 
-// $Id: SuperKISS64.go,v 1.52 2022-01-12 07:18:48-05 ron Exp $
+// $Id: SuperKISS64.go,v 1.56 2024-05-16 12:59:07-04 ron Exp $
 
 /* To find 10^397525 on Windows (with unxutils' GNU awk, bc, tr & wc):
  * awk "BEGIN{printf(\"5*2^^1320480*(2^^64-1)\n\")}" | bc -q | tr -cd "0-9" | wc -c
@@ -82,15 +82,19 @@ var vvv uint64
 // NewSuperKISS64 allocates a new SuperKISS64 PRNG.  Parameter seed determines
 // whether to initialize for testing or to a state based on math/rand.Uint64.
 // Seed with 0 for testing; use any other int64 seed otherwise.
-// To "randomly" seed, use uint64(time.Now().UTC().UnixNano()) as the argument
+// To "randomly" seed, use uint64(time.Now().UnixNano()) as the argument
 // for seed.
 // If a larger number of starting states is desired, use NewSuperKISS64Array
 // or NewSuperKISS64Rand.
 // NewSuperKISS64 may be wrapped by math/rand.New as in this example:
-//		import "math/rand"
-//		r := rand.New(NewSuperKISS64(seed))
+//
+//	import "math/rand"
+//	r := rand.New(NewSuperKISS64(seed))
+//
 // Then r can use methods provided by math/rand, such as r.Int31n()
-// and r.Shuffle().
+// and r.Shuffle().  See function TestSK64SaveLoadRandState in
+// SuperKISS64_test.go for an example of how to save and load the state of a
+// wrapped generator.
 func NewSuperKISS64(seed int64) *SK64 {
 	r := &SK64{
 		Q: make([]uint64, QSIZE64, QSIZE64),
@@ -104,8 +108,10 @@ func NewSuperKISS64(seed int64) *SK64 {
 // cryptographically secure.  It provides easy access to all possible
 // SuperKISS64 sequences.
 // NewSuperKISS64Rand may be wrapped by math/rand.New as in this example:
-//		import "math/rand"
-//		r := rand.New(NewSuperKISS64Rand())
+//
+//	import "math/rand"
+//	r := rand.New(NewSuperKISS64Rand())
+//
 // Then r can use methods provided by math/rand, such as r.Int31n()
 // and r.Shuffle().
 func NewSuperKISS64Rand() *SK64 {
@@ -120,8 +126,10 @@ func NewSuperKISS64Rand() *SK64 {
 // initializes it with array q. Array q should contain QSIZE64 or more "random"
 // values, although fewer or more numbers are acceptable.
 // NewSuperKISS64Array may be wrapped by math/rand.New as in this example:
-//		import "math/rand"
-//		r := rand.New(NewSuperKISS64Array(q))
+//
+//	import "math/rand"
+//	r := rand.New(NewSuperKISS64Array(q))
+//
 // Then r can use methods provided by math/rand, such as r.Int31n()
 // and r.Shuffle().
 func NewSuperKISS64Array(q []uint64) *SK64 {
@@ -133,6 +141,7 @@ func NewSuperKISS64Array(q []uint64) *SK64 {
 }
 
 // SaveState saves the state of SuperKISS64 PRNG r to file outfile in XML.
+// Typical saved file size is about 545 KB.
 func (r *SK64) SaveState(outfile string) (err error) {
 	var out []byte
 	out, err = xml.Marshal(r)
