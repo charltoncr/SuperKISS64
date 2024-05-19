@@ -1,4 +1,4 @@
-// $Id: SuperKISS64_test.go,v 1.2 2024-05-16 13:41:39-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.9 2024-05-19 12:10:56-04 ron Exp $
 
 package SuperKISS64
 
@@ -38,7 +38,7 @@ const alpha = 0.00001 // acceptable p-value limitpackage SuperKISS64
 	anywhere, for any reason, absolutely free of charge.
 */
 
-// $Id: SuperKISS64_test.go,v 1.2 2024-05-16 13:41:39-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.9 2024-05-19 12:10:56-04 ron Exp $
 
 /*
 c:\Users\Ron\go\src>go run TestPValue.go 255 160
@@ -238,7 +238,7 @@ func TestNewSuperKISS64Array(t *testing.T) {
 }
 
 func TestSK64SaveLoadState(t *testing.T) {
-	fName := "SuperKISS64SaveLoadTest.tmp"
+	fName := "SuperKISS64SaveLoadTest.xml"
 	var q []uint64
 	r := NewSuperKISS64Rand()
 	err := r.SaveState(fName)
@@ -262,32 +262,33 @@ func TestSK64SaveLoadState(t *testing.T) {
 	os.Remove(fName)
 }
 
-func TestSK64SaveLoadRandState(t *testing.T) {
-	fName := "SuperKISS64SaveLoadRandTest.tmp"
-	c := NewSuperKISS64Rand()
-	r := rand.New(c)
-	for i := 0; i < 1000; i++ {
-		r.Uint64()
-	}
+var Www []int
 
-	err := c.SaveState(fName) // save SK64 state after use by math.Rand
-	if err != nil {
+func TestSK64SaveLoadWrappedState(t *testing.T) {
+	fName := "SuperKISS64SaveLoadWrappedTest.xml.gz"
+	const n = 33000
+	var err error
+
+	c := NewSuperKISS64Rand() // random initialization
+	r := rand.New(c)
+
+	Www = r.Perm(n) // use math/rand function
+
+	// save SK64 state after use by math/rand
+	if err = c.SaveState(fName); err != nil {
 		t.Fatalf("SaveState returned error: %v", err)
 	}
 
-	p := r.Uint64() // next value after saving state
-	for i := 0; i < 2000; i++ {
-		r.Uint64() // change state by running PRNG
-	}
+	want := r.Uint32() // next value after saving state
+	Www = r.Perm(n)    // change state by running PRNG
 
-	d, err1 := SK64LoadState(fName)
-	if err1 != nil {
-		t.Fatalf("LoadState returned error: %v", err)
+	if c, err = SK64LoadState(fName); err != nil {
+		t.Fatalf("SK64LoadState returned error: %v", err)
 	}
-	r = rand.New(d) // new math.Rand with same state as saved earlier
-	n := r.Uint64()
-	if p != n {
-		t.Errorf("want %v but got %v", p, n)
+	r = rand.New(c) // new math/rand with same state as saved earlier
+	got := r.Uint32()
+	if got != want {
+		t.Errorf("want %v but got %v", want, got)
 	}
 	os.Remove(fName)
 }
@@ -342,8 +343,6 @@ func pValueTest(rng *SK64, t *testing.T) {
 	}
 }
 
-var testFileRR = "testFileRemoveReturns.txt" // contains CRs
-
 // Compile time test: CryptoSource implements the rand.Source interface.
 var _ rand.Source = &CryptoSource{}
 
@@ -380,8 +379,8 @@ func BenchmarkCryptoSource(b *testing.B) {
 
 func BenchmarkSuperKISS64(b *testing.B) {
 	b.SetBytes(8)
-	b.ResetTimer()
 	r := NewSuperKISS64Rand()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		v = r.Uint64()
 	}

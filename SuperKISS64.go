@@ -28,7 +28,7 @@ get the result I do. It should take around 20 seconds.
 
 // Ron Charlton (RC) code:
 
-// $Id: SuperKISS64.go,v 1.56 2024-05-16 12:59:07-04 ron Exp $
+// $Id: SuperKISS64.go,v 1.68 2024-05-19 13:08:33-04 ron Exp $
 
 /* To find 10^397525 on Windows (with unxutils' GNU awk, bc, tr & wc):
  * awk "BEGIN{printf(\"5*2^^1320480*(2^^64-1)\n\")}" | bc -q | tr -cd "0-9" | wc -c
@@ -39,10 +39,13 @@ get the result I do. It should take around 20 seconds.
 package SuperKISS64
 
 import (
+	"compress/gzip"
 	"encoding/binary"
 	"encoding/xml"
+	"io"
 	"math"
 	"os"
+	"strings"
 )
 
 // Derived from GM C code:
@@ -61,7 +64,7 @@ type SK64 struct {
 	Seeded bool     `xml:"Seeded"`
 }
 
-// cng is an congruential PRNG for internal use by SuperKISS64.
+// cng is a congruential PRNG for internal use by SuperKISS64.
 func (r *SK64) cng() uint64 {
 	r.Xcng = 6906969069*r.Xcng + 123
 	return r.Xcng
@@ -82,8 +85,7 @@ var vvv uint64
 // NewSuperKISS64 allocates a new SuperKISS64 PRNG.  Parameter seed determines
 // whether to initialize for testing or to a state based on math/rand.Uint64.
 // Seed with 0 for testing; use any other int64 seed otherwise.
-// To "randomly" seed, use uint64(time.Now().UnixNano()) as the argument
-// for seed.
+// To "randomly" seed, use time.UnixNano() as the argument for seed.
 // If a larger number of starting states is desired, use NewSuperKISS64Array
 // or NewSuperKISS64Rand.
 // NewSuperKISS64 may be wrapped by math/rand.New as in this example:
@@ -91,10 +93,11 @@ var vvv uint64
 //	import "math/rand"
 //	r := rand.New(NewSuperKISS64(seed))
 //
-// Then r can use methods provided by math/rand, such as r.Int31n()
-// and r.Shuffle().  See function TestSK64SaveLoadRandState in
-// SuperKISS64_test.go for an example of how to save and load the state of a
-// wrapped generator.
+// Then r can use methods provided by math/rand, such as r.Int31n(), r.Perm()
+// and r.Shuffle().
+//
+// See function TestSK64SaveLoadWrappedState in SuperKISS64_test.go for an
+// example of how to save and load the state of a wrapped generator.
 func NewSuperKISS64(seed int64) *SK64 {
 	r := &SK64{
 		Q: make([]uint64, QSIZE64, QSIZE64),
@@ -112,7 +115,7 @@ func NewSuperKISS64(seed int64) *SK64 {
 //	import "math/rand"
 //	r := rand.New(NewSuperKISS64Rand())
 //
-// Then r can use methods provided by math/rand, such as r.Int31n()
+// Then r can use methods provided by math/rand, such as r.Int31n(). r.Perm()
 // and r.Shuffle().
 func NewSuperKISS64Rand() *SK64 {
 	r := &SK64{
@@ -140,29 +143,57 @@ func NewSuperKISS64Array(q []uint64) *SK64 {
 	return r
 }
 
-// SaveState saves the state of SuperKISS64 PRNG r to file outfile in XML.
-// Typical saved file size is about 545 KB.
+// SaveState saves the state of SuperKISS64 PRNG r as XML to file outfile.
+// The saved file size is about 524 KB.
+// If outfile ends with ".gz" then a gzip'ped XML file will be written, and
+// the typical saved file size is about 212 KB.  A saved state file of either
+// type can be restored by calling SK64LoadState.
 func (r *SK64) SaveState(outfile string) (err error) {
-	var out []byte
-	out, err = xml.Marshal(r)
-	if err == nil && len(outfile) > 0 {
-		o := []byte(xml.Header + string(out))
-		err = os.WriteFile(outfile, o, 0644)
+	var fOut *os.File
+	var gw *gzip.Writer
+	if fOut, err = os.Create(outfile); err != nil {
+		return
 	}
+	defer fOut.Close()
+	w := io.Writer(fOut)
+	if strings.HasSuffix(outfile, ".gz") {
+		best := gzip.BestCompression
+		if gw, err = gzip.NewWriterLevel(fOut, best); err != nil {
+			return
+		}
+		defer gw.Close()
+		w = gw
+	}
+	encoder := xml.NewEncoder(w)
+	encoder.Indent("", "  ")
+	err = encoder.Encode(r)
 	return
 }
 
-// SK64LoadState returns a pointer to a SuperKISS64 state read from an XML
-// file that was written earlier with SaveState.
+// SK64LoadState returns a pointer to a SuperKISS64 state read from an
+// XML file that was written earlier with SaveState.  If infile ends in ".gz"
+// then SK64LoadState expects a gzip'ped XML file.  Infile should
+// match the file name used for saving the state.
 // (nil, err) is returned if an error occurs.
 func SK64LoadState(infile string) (r *SK64, err error) {
-	var b []byte
+	var in *os.File
+	var gr *gzip.Reader
 
-	if b, err = os.ReadFile(infile); err != nil {
+	if in, err = os.Open(infile); err != nil {
 		return
 	}
+	defer in.Close()
+	rdr := io.Reader(in)
+	if strings.HasSuffix(infile, ".gz") {
+		if gr, err = gzip.NewReader(in); err != nil {
+			return
+		}
+		defer gr.Close()
+		rdr = gr
+	}
 	r = &SK64{}
-	if err = xml.Unmarshal(b, r); err != nil {
+	decoder := xml.NewDecoder(rdr)
+	if err = decoder.Decode(r); err != nil {
 		r = nil
 	}
 	return
@@ -172,7 +203,8 @@ func SK64LoadState(infile string) (r *SK64, err error) {
 
 // Seed initializes a SuperKISS64 instance with seed.
 // Call with seed == 0 for util_test.go:TestSuperKISS64.  Call with seed of
-// any int64 value (including 0) otherwise.
+// any int64 value (including 0) otherwise.  For a "random" seed, call Seed
+// with argument time.UnixNano().
 func (r *SK64) Seed(seed int64) {
 	r.Seeded = true
 
