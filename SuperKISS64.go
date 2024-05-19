@@ -28,7 +28,7 @@ get the result I do. It should take around 20 seconds.
 
 // Ron Charlton (RC) code:
 
-// $Id: SuperKISS64.go,v 1.68 2024-05-19 13:08:33-04 ron Exp $
+// $Id: SuperKISS64.go,v 1.69 2024-05-19 13:42:33-04 ron Exp $
 
 /* To find 10^397525 on Windows (with unxutils' GNU awk, bc, tr & wc):
  * awk "BEGIN{printf(\"5*2^^1320480*(2^^64-1)\n\")}" | bc -q | tr -cd "0-9" | wc -c
@@ -42,6 +42,7 @@ import (
 	"compress/gzip"
 	"encoding/binary"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -164,8 +165,8 @@ func (r *SK64) SaveState(outfile string) (err error) {
 		defer gw.Close()
 		w = gw
 	}
+	fmt.Fprintf(w, xml.Header)
 	encoder := xml.NewEncoder(w)
-	encoder.Indent("", "  ")
 	err = encoder.Encode(r)
 	return
 }
@@ -325,7 +326,7 @@ func (r *SK64) Uint64() (result uint64) {
 
 // RC code:
 
-// Int63 returns a uniformly distributed pseudorandom number [0,63) from
+// Int63 returns a uniformly distributed pseudorandom number [0,2^63) from
 // SuperKISS64.  This method implements the math/rand.Source interface.
 func (r *SK64) Int63() int64 {
 	return int64(r.Uint64() >> 1)
@@ -343,8 +344,8 @@ func (r *SK64) Float64() float64 {
 }
 
 // Read fills p with pseudorandom bytes from SuperKISS64.  This method implements
-// the io.Reader interface.  The returned length n is always
-// len(p) and err is always nil.
+// the io.Reader interface.  The returned length n is always len(p) and err
+// is always nil.
 func (r *SK64) Read(p []byte) (n int, err error) {
 	for ; n+8 <= len(p); n += 8 {
 		binary.LittleEndian.PutUint64(p[n:], r.Uint64())
