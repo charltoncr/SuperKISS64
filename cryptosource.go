@@ -5,14 +5,14 @@
 //
 // By Ron Charlton 2021-03-19.
 
-// $Id: cryptosource.go,v 1.32 2022-01-12 10:46:43-05 ron Exp $
+// $Id: cryptosource.go,v 1.35 2024-05-19 14:48:59-04 ron Exp $
 
 package SuperKISS64
 
 import (
 	crand "crypto/rand"
 	"encoding/binary"
-	"log"
+	"fmt"
 	"reflect"
 )
 
@@ -33,9 +33,11 @@ type CryptoSource struct {
 // for general use.
 //
 // NewCryptoSource may be wrapped by math/rand.New as in this example:
-//		import "math/rand"
-//		r := rand.New(NewCryptoSource())
-// Then r can use methods provided by math/rand, such as r.Int31n()
+//
+//	import "math/rand"
+//	r := rand.New(NewCryptoSource())
+//
+// Then r can use methods provided by math/rand, such as r.Int31n() r.Perm()
 // and r.Shuffle(), with CryptoSource as their basis.
 //
 // A single instance is not safe for concurrent access by different
@@ -63,7 +65,7 @@ func (r *CryptoSource) Seed(seed int64) {
 func (r *CryptoSource) Uint64() (n uint64) {
 	if r.next >= len(r.buf) {
 		if _, err := crand.Read(r.buf); err != nil {
-			log.Panicf("crypto/rand.Read error in CryptoSource.Uint64: %v", err)
+			panic(fmt.Sprintf("crypto/rand.Read error in CryptoSource.Uint64: %v", err))
 		}
 		r.next = 0
 	}
