@@ -1,4 +1,4 @@
-// $Id: SuperKISS64_test.go,v 1.9 2024-05-19 12:10:56-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.14 2024-05-21 09:39:06-04 ron Exp $
 
 package SuperKISS64
 
@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const alpha = 0.00001 // acceptable p-value limitpackage SuperKISS64
+const alpha = 0.00001 // acceptable p-value limit
 
 // Ported by Ron Charlton from p_value.c on 2018-08-29.
 // From https://www.codeproject.com/Articles/432194/How-to-Calculate-the-Chi-Squared-P-Value
@@ -38,7 +38,7 @@ const alpha = 0.00001 // acceptable p-value limitpackage SuperKISS64
 	anywhere, for any reason, absolutely free of charge.
 */
 
-// $Id: SuperKISS64_test.go,v 1.9 2024-05-19 12:10:56-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.14 2024-05-21 09:39:06-04 ron Exp $
 
 /*
 c:\Users\Ron\go\src>go run TestPValue.go 255 160
@@ -184,7 +184,7 @@ func LogGamma(N float64) float64 {
 
 func TestCryptoSource(t *testing.T) {
 	rng := rand.New(NewCryptoSource())
-	rng.Seed(time.Now().UTC().UnixNano()) // no effect
+	rng.Seed(time.Now().UnixNano()) // no effect
 	b := make([]byte, 2047)
 	for i := 0; i < 10000; i++ {
 		rng.Uint64()
@@ -278,9 +278,9 @@ func TestSK64SaveLoadWrappedState(t *testing.T) {
 	if err = c.SaveState(fName); err != nil {
 		t.Fatalf("SaveState returned error: %v", err)
 	}
-
 	want := r.Uint32() // next value after saving state
-	Www = r.Perm(n)    // change state by running PRNG
+
+	Www = r.Perm(n) // change state by running PRNG
 
 	if c, err = SK64LoadState(fName); err != nil {
 		t.Fatalf("SK64LoadState returned error: %v", err)
@@ -298,20 +298,15 @@ func TestSK64SaveLoadWrappedState(t *testing.T) {
 func pValueTest(rng *SK64, t *testing.T) {
 	binsOfPValues := make([]int, 10)       // 10 bins for p-values
 	PValueCount := len(binsOfPValues) * 10 // 10 average per bin (min. 5 req'd)
-	const BitsPerByte = 8                  // not necessarily constant
-	const bytesPerUint64 = 64 / BitsPerByte
-	const binCount = 256 // a byte can store 256 different values
+	const binCount = 256                   // a byte can store 256 different values
+	buf := make([]byte, 800000)
 	for m := 0; m < PValueCount; m++ {
 		bins := make([]int, binCount)
-		const loops = 100000 // a big number
-		for i := 0; i < loops; i++ {
-			n := rng.Uint64()
-			for j := 0; j < bytesPerUint64; j++ {
-				bins[byte(n)]++
-				n >>= 8
-			}
+		rng.Read(buf)
+		for _, b := range buf {
+			bins[int(b)]++
 		}
-		expected := float64(loops*bytesPerUint64) / binCount
+		expected := float64(len(buf)) / binCount
 		chiSquare := 0.0
 		for _, observed := range bins {
 			x := float64(observed) - expected
