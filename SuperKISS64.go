@@ -8,6 +8,8 @@
  * 667 MHz memory.  RonC 2021-05-xx.
  *
  * 5.1 ns per call on 2021 Mac Mini with 3.2 GHz M1 processor. RonC 2021-06-05.
+ *
+ * 4.6 ns per call on 2023 Mac Studio with 3.504 GHz M2 Max processor. RonC 2024-05-24.
  */
 
 /* Ron Charlton's additions are public domain as per CC0 1.0; see
@@ -28,7 +30,7 @@ get the result I do. It should take around 20 seconds.
 
 // Ron Charlton (RC) code:
 
-// $Id: SuperKISS64.go,v 1.78 2024-05-22 10:09:22-04 ron Exp $
+// $Id: SuperKISS64.go,v 1.92 2024-05-24 16:20:00-04 ron Exp $
 
 /* To find 10^397525 on Windows (with unxutils' GNU awk, bc, tr & wc):
  * awk "BEGIN{printf(\"5*2^^1320480*(2^^64-1)\n\")}" | bc -q | tr -cd "0-9" | wc -c
@@ -36,12 +38,19 @@ get the result I do. It should take around 20 seconds.
  * echo "5*2^1320480*(2^64-1)" | bc -q | tr -cd "0-9" | wc -c
  */
 
+// SuperKISS64 is useful where an extremely large number of possible random
+// sequences is needed.  For example, to fairly shuffle a deck of 52 cards, a
+// generator capable of 52! different starting states and sequences is required.
+// 52! is approximately 8.0e+67.
+//
+// SuperKISS64 passes all dieharder version 3.31.1 tests.
 package SuperKISS64
 
 import (
 	"compress/gzip"
 	"encoding/binary"
 	"encoding/xml"
+	"errors"
 	"io"
 	"math"
 	"os"
@@ -64,7 +73,8 @@ type SK64 struct {
 	Seeded bool     `xml:"Seeded"`
 }
 
-// cng is a congruential PRNG for internal use by SuperKISS64.
+// cng is a congruential pseudorandom number generator (PRNG) for internal
+// use by SuperKISS64.
 func (r *SK64) cng() uint64 {
 	r.Xcng = 6906969069*r.Xcng + 123
 	return r.Xcng
@@ -82,9 +92,15 @@ func xs(x uint64) uint64 {
 
 var vvv uint64
 
+// New allocates a SuperKISS64 PRNG with George Marsaglia's test state.
+// It is suitable for testing the PRNG as Marsaglia recommended.
+func New() *SK64 {
+	return NewSuperKISS64(0)
+}
+
 // NewSuperKISS64 allocates a new SuperKISS64 PRNG.  Parameter seed determines
 // whether to initialize for testing or to a state based on math/rand.Uint64.
-// Seed with 0 for testing; use any other int64 seed otherwise.
+// Seed with 0 for testing; otherwise use any int64 seed.
 // To "randomly" seed, use time.UnixNano() as argument seed.
 // If a larger number of starting states is desired, use NewSuperKISS64Array
 // or NewSuperKISS64Rand.
@@ -150,10 +166,11 @@ func NewSuperKISS64Array(q []uint64) *SK64 {
 }
 
 // SaveState saves the state of SuperKISS64 PRNG r as XML to a file named
-// outfile.  The saved file size is about 524 KB.
+// by outfile.  The saved file size is about 524 KB.
 // If outfile ends with ".gz" then a gzip'ped XML file is written, and
 // the typical saved file size is about 212 KB.  Either type of saved state
-// file can be loaded by calling SK64LoadState with the appropriate name.
+// file can be loaded by calling either SK64LoadState or LoadState with the
+// same file name used to save the file.
 //
 // To view a SuperKISS64-saved XML file with line breaks added:
 //
@@ -166,6 +183,9 @@ func (r *SK64) SaveState(outfile string) (err error) {
 	var out *os.File
 	var gw *gzip.Writer
 
+	if r == nil {
+		return errors.New("SuperKISS64.SaveState called with nil r")
+	}
 	if out, err = os.Create(outfile); err != nil {
 		return
 	}
@@ -181,18 +201,32 @@ func (r *SK64) SaveState(outfile string) (err error) {
 	}
 	io.WriteString(w, xml.Header)
 	encoder := xml.NewEncoder(w)
-	err = encoder.Encode(r)
-	return
+	return encoder.Encode(r)
 }
 
-// SK64LoadState returns a SuperKISS64 state read from an
-// XML file written earlier with SaveState.  Infile should match the
-// file name used to save the state.  If infile ends with ".gz"
-// then SK64LoadState expects a gzip'ped XML file.
-// (nil, err) is returned if an error occurs.
-func SK64LoadState(infile string) (r *SK64, err error) {
+// SK64SaveState saves a SuperKISS64 state r to an XML file named outfile.
+// The file size is about 524 KB.
+// If outfile ends with ".gz" then SK64SaveState writes a gzip'ped XML file;
+// then the typical saved file size is about 212 KB.
+func SK64SaveState(r *SK64, outfile string) (err error) {
+	if r == nil {
+		return errors.New("SuperKISS64.SK64SaveState called with nil r")
+	}
+	return r.SaveState(outfile)
+}
+
+// LoadState loads SuperKISS64 state r from an
+// XML file written earlier with SaveState or SK64SaveState.
+// Infile should match the file name used to save the state.  If
+// infile ends with ".gz" then LoadState expects a gzip'ped XML file.
+// If an error occurs r is left unchanged.
+func (r *SK64) LoadState(infile string) (err error) {
 	var in *os.File
 	var gr *gzip.Reader
+
+	if r == nil {
+		return errors.New("SuperKISS64.LoadState called with nil r")
+	}
 
 	if in, err = os.Open(infile); err != nil {
 		return
@@ -206,9 +240,23 @@ func SK64LoadState(infile string) (r *SK64, err error) {
 		defer gr.Close()
 		rdr = gr
 	}
-	r = &SK64{}
+	q := &SK64{}
 	decoder := xml.NewDecoder(rdr)
-	if err = decoder.Decode(r); err != nil {
+	if err = decoder.Decode(q); err == nil {
+		*r = *q
+	}
+	return
+}
+
+// SK64LoadState returns a SuperKISS64 generator r from an
+// XML file written earlier with SaveState or SK64SaveState.  Infile should
+// match the file name used to save the state.  If infile ends with ".gz"
+// then SK64LoadState expects a gzip'ped XML file.
+// (nil, err) is returned if an error occurs.
+func SK64LoadState(infile string) (r *SK64, err error) {
+	r = &SK64{}
+	err = r.LoadState(infile)
+	if err != nil {
 		r = nil
 	}
 	return

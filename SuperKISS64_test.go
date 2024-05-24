@@ -1,4 +1,4 @@
-// $Id: SuperKISS64_test.go,v 1.14 2024-05-21 09:39:06-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.23 2024-05-24 16:22:45-04 ron Exp $
 
 package SuperKISS64
 
@@ -38,7 +38,7 @@ const alpha = 0.00001 // acceptable p-value limit
 	anywhere, for any reason, absolutely free of charge.
 */
 
-// $Id: SuperKISS64_test.go,v 1.14 2024-05-21 09:39:06-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.23 2024-05-24 16:22:45-04 ron Exp $
 
 /*
 c:\Users\Ron\go\src>go run TestPValue.go 255 160
@@ -200,15 +200,15 @@ func TestCryptoSource(t *testing.T) {
 
 func TestSuperKISS64(t *testing.T) {
 	// George Marsaglia's test
-	var p uint64
-	const x = 4013566000157423768
-	r := NewSuperKISS64(0)
+	var got uint64
+	const want = 4013566000157423768
+	r := New()
 	for i := 0; i < 1000000000; i++ {
-		p = r.Uint64()
+		got = r.Uint64()
 	}
 
-	if p != x {
-		t.Errorf("want %v but got %d", x, p)
+	if got != want {
+		t.Errorf("want %v but got %d", want, got)
 	}
 	pValueTest(NewSuperKISS64Rand(), t)
 }
@@ -239,24 +239,27 @@ func TestNewSuperKISS64Array(t *testing.T) {
 
 func TestSK64SaveLoadState(t *testing.T) {
 	fName := "SuperKISS64SaveLoadTest.xml"
-	var q []uint64
-	r := NewSuperKISS64Rand()
-	err := r.SaveState(fName)
-	if err != nil {
+	var w []uint64
+	var r, z *SK64
+	var err error
+
+	r = NewSuperKISS64Rand() // random initialization
+
+	if err = r.SaveState(fName); err != nil {
 		t.Fatalf("SaveState returned error: %v", err)
 	}
-	for i := 0; i < 10; i++ {
-		q = append(q, r.Uint64())
+	for i := 0; i < 100; i++ {
+		w = append(w, r.Uint64())
 	}
 	r.Uint64()
-	z, err := SK64LoadState(fName)
-	if err != nil {
+
+	if z, err = SK64LoadState(fName); err != nil {
 		t.Fatalf("LoadState returned error: %v", err)
 	}
-	for i := 0; i < 10; i++ {
-		n := z.Uint64()
-		if q[i] != n {
-			t.Errorf("want %v but got %v", q[i], n)
+	for i, want := range w {
+		got := z.Uint64()
+		if got != want {
+			t.Errorf("want %v but got %v at index %v", want, got, i)
 		}
 	}
 	os.Remove(fName)
@@ -266,29 +269,33 @@ var Www []int
 
 func TestSK64SaveLoadWrappedState(t *testing.T) {
 	fName := "SuperKISS64SaveLoadWrappedTest.xml.gz"
-	const n = 33000
 	var err error
+	var want, got []int
+	const n = QSIZE64 + 100 // use every Q value at least once
 
 	c := NewSuperKISS64Rand() // random initialization
 	r := rand.New(c)
 
-	Www = r.Perm(n) // use math/rand function
+	Www = r.Perm(n + 20) // change state by running PRNG
 
 	// save SK64 state after use by math/rand
 	if err = c.SaveState(fName); err != nil {
 		t.Fatalf("SaveState returned error: %v", err)
 	}
-	want := r.Uint32() // next value after saving state
+	want = r.Perm(n) // next values after saving state are used
 
-	Www = r.Perm(n) // change state by running PRNG
+	Www = r.Perm(n + 37) // change state by running PRNG
 
-	if c, err = SK64LoadState(fName); err != nil {
-		t.Fatalf("SK64LoadState returned error: %v", err)
+	if err = c.LoadState(fName); err != nil {
+		t.Fatalf("LoadState returned error: %v", err)
 	}
 	r = rand.New(c) // new math/rand with same state as saved earlier
-	got := r.Uint32()
-	if got != want {
-		t.Errorf("want %v but got %v", want, got)
+	got = r.Perm(n)
+	// Do got slice values equal want slice values?
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("want %v but got %v at index %v", want[i], got[i], i)
+		}
 	}
 	os.Remove(fName)
 }

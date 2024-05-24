@@ -1,10 +1,25 @@
 package SuperKISS64 // import "SuperKISS64"
 
+SuperKISS64 is useful where an extremely large number of possible random
+sequences is needed. For example, to fairly shuffle a deck of 52 cards,
+a generator capable of 52! different starting states and sequences is required.
+52! is approximately 8.0e+67.
+
+SuperKISS64 passes all dieharder version 3.31.1 tests.
 
 CONSTANTS
 
 const QSIZE64 = 20632
     QSIZE64 is the size of array Q.
+
+
+FUNCTIONS
+
+func SK64SaveState(r *SK64, outfile string) (err error)
+    SK64SaveState saves a SuperKISS64 state r to an XML file named outfile.
+    The file size is about 524 KB. If outfile ends with ".gz" then SK64SaveState
+    writes a gzip'ped XML file; then the typical saved file size is about 212
+    KB.
 
 
 TYPES
@@ -63,13 +78,17 @@ type SK64 struct {
     SK64 is the state for SuperKISS64 methods. SuperKISS64's period is more than
     10^397524.
 
+func New() *SK64
+    New allocates a SuperKISS64 PRNG with George Marsaglia's test state.
+    It is suitable for testing the PRNG as Marsaglia recommended.
+
 func NewSuperKISS64(seed int64) *SK64
     NewSuperKISS64 allocates a new SuperKISS64 PRNG. Parameter seed determines
     whether to initialize for testing or to a state based on math/rand.Uint64.
-    Seed with 0 for testing; use any other int64 seed otherwise. To "randomly"
-    seed, use time.UnixNano() as argument seed. If a larger number of starting
-    states is desired, use NewSuperKISS64Array or NewSuperKISS64Rand.
-    NewSuperKISS64 may be wrapped by math/rand.New as in this example:
+    Seed with 0 for testing; otherwise use any int64 seed. To "randomly" seed,
+    use time.UnixNano() as argument seed. If a larger number of starting states
+    is desired, use NewSuperKISS64Array or NewSuperKISS64Rand. NewSuperKISS64
+    may be wrapped by math/rand.New as in this example:
 
         import "math/rand"
         r := rand.New(NewSuperKISS64(seed))
@@ -112,10 +131,10 @@ func NewSuperKISS64Rand() *SK64
     example of how to save and load the state of a wrapped generator.
 
 func SK64LoadState(infile string) (r *SK64, err error)
-    SK64LoadState returns a SuperKISS64 state read from an XML file written
-    earlier with SaveState. Infile should match the file name used to save the
-    state. If infile ends in ".gz" then SK64LoadState expects a gzip'ped XML
-    file. (nil, err) is returned if an error occurs.
+    SK64LoadState returns a SuperKISS64 generator r from an XML file written
+    earlier with SaveState or SK64SaveState. Infile should match the file name
+    used to save the state. If infile ends with ".gz" then SK64LoadState expects
+    a gzip'ped XML file. (nil, err) is returned if an error occurs.
 
 func (r *SK64) Float64() float64
     Float64 provides a uniformly-distributed, pseudorandom float64 value in
@@ -126,17 +145,24 @@ func (r *SK64) Int63() int64
     Int63 returns a uniformly distributed pseudorandom number [0,2^63) from
     SuperKISS64. This method implements the math/rand.Source interface.
 
+func (r *SK64) LoadState(infile string) (err error)
+    LoadState loads SuperKISS64 state r from an XML file written earlier with
+    SaveState or SK64SaveState. Infile should match the file name used to save
+    the state. If infile ends with ".gz" then LoadState expects a gzip'ped XML
+    file. If an error occurs r is left unchanged.
+
 func (r *SK64) Read(p []byte) (n int, err error)
     Read fills p with pseudorandom bytes from SuperKISS64. This method
     implements the io.Reader interface. The returned length n is always len(p)
     and err is always nil.
 
 func (r *SK64) SaveState(outfile string) (err error)
-    SaveState saves the state of SuperKISS64 PRNG r as XML to a file named
+    SaveState saves the state of SuperKISS64 PRNG r as XML to a file named by
     outfile. The saved file size is about 524 KB. If outfile ends with ".gz"
     then a gzip'ped XML file is written, and the typical saved file size is
     about 212 KB. Either type of saved state file can be loaded by calling
-    SK64LoadState with the appropriate name.
+    either SK64LoadState or LoadState with the same file name used to save the
+    file.
 
     To view a SuperKISS64-saved XML file with line breaks added:
 
