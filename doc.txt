@@ -1,9 +1,10 @@
 package SuperKISS64 // import "SuperKISS64"
 
-SuperKISS64 is useful where an extremely large number of possible random
+SuperKISS64 is useful when an extremely large number of possible random
 sequences is needed. For example, to fairly shuffle a deck of 52 cards,
 a generator capable of 52! different starting states and sequences is required.
-52! is approximately 8.0e+67.
+52! is approximately 8.0e+67. math/rand has only about 1.0e+19 starting states
+and sequences. SuperKISS64 has about 1.0e+397525 starting states and sequences.
 
 SuperKISS64 passes all dieharder version 3.31.1 tests.
 
@@ -16,10 +17,11 @@ const QSIZE64 = 20632
 FUNCTIONS
 
 func SK64SaveState(r *SK64, outfile string) (err error)
-    SK64SaveState saves a SuperKISS64 state r to an XML file named outfile.
-    The file size is about 524 KB. If outfile ends with ".gz" then SK64SaveState
-    writes a gzip'ped XML file; then the typical saved file size is about 212
-    KB.
+    SK64SaveState saves a SuperKISS64 state r to an XML file named by outfile.
+    The file size is about 524 KB. If outfile ends with ".gz" SK64SaveState
+    writes a gzip'ped XML file; then the typical saved file size is about
+    212 KB. Either type of saved state file can be loaded by calling either
+    SK64LoadState or LoadState with the same file name used to save the file.
 
 
 TYPES
@@ -79,56 +81,59 @@ type SK64 struct {
     10^397524.
 
 func New() *SK64
-    New allocates a SuperKISS64 PRNG with George Marsaglia's test state.
-    It is suitable for testing the PRNG as Marsaglia recommended.
+    New allocates a SuperKISS64 PRNG with a "random" seed. It is useful
+    when repeating a sequence is not required. Approximately 1.0e+19
+    sequences are possible. See also NewSuperKISS64, NewSuperKISS64Rand and
+    NewSuperKISS64FromSlice.
 
 func NewSuperKISS64(seed int64) *SK64
     NewSuperKISS64 allocates a new SuperKISS64 PRNG. Parameter seed determines
-    whether to initialize for testing or to a state based on math/rand.Uint64.
-    Seed with 0 for testing; otherwise use any int64 seed. To "randomly" seed,
-    use time.UnixNano() as argument seed. If a larger number of starting states
-    is desired, use NewSuperKISS64Array or NewSuperKISS64Rand. NewSuperKISS64
-    may be wrapped by math/rand.New as in this example:
+    whether to initialize for testing or not. Seed with 0 for George
+    Marsaglia's test; otherwise use any int64 seed. Approximately 1.0e+19
+    sequences are possible. If a larger number of starting states is desired,
+    use NewSuperKISS64FromSlice or NewSuperKISS64Rand. NewSuperKISS64 may be
+    wrapped by math/rand.New as in this example:
 
         import "math/rand"
         r := rand.New(NewSuperKISS64(seed))
 
     Then r can use methods provided by math/rand, such as r.Int31n(), r.Perm()
-    and r.Shuffle().
-
-    See function TestSK64SaveLoadWrappedState in SuperKISS64_test.go for an
-    example of how to save and load the state of a wrapped generator.
+    and r.Shuffle(). See function TestSK64SaveLoadWrapped in SuperKISS64_test.go
+    for an example of how to save and load the state of a wrapped generator.
 
 func NewSuperKISS64Array(q []uint64) *SK64
-    NewSuperKISS64Array allocates a new SuperKISS64 PRNG and initializes it
-    using array q. Array q should contain QSIZE64 or more "random" values,
-    although fewer or more numbers are acceptable. NewSuperKISS64Array may be
-    wrapped by math/rand.New as in this example:
+    NewSuperKISS64Array is provided for compatibility with older versions.
+    It is deprecated. Use NewSuperKISS64FromSlice in new code.
+
+func NewSuperKISS64FromSlice(s []uint64) *SK64
+    NewSuperKISS64FromSlice allocates a new SuperKISS64 PRNG and initializes
+    it using slice s. Slice s should contain QSIZE64 or more "random" values,
+    although fewer or more numbers are acceptable. NewSuperKISS64FromSlice may
+    be wrapped by math/rand.New as in this example:
 
         import "math/rand"
         r := rand.New(NewSuperKISS64Array(q))
 
     Then r can use methods provided by math/rand, such as r.Int31n() and
-    r.Shuffle().
-
-    See function TestSK64SaveLoadWrappedState in SuperKISS64_test.go for an
-    example of how to save and load the state of a wrapped generator.
+    r.Shuffle(). See function TestSK64SaveLoadWrapped in SuperKISS64_test.go for
+    an example of how to save and load the state of a wrapped generator.
 
 func NewSuperKISS64Rand() *SK64
     NewSuperKISS64Rand allocates a new SuperKISS64 PRNG and initializes it
     with random numbers from crypto/rand. This does NOT make SuperKISS64
     cryptographically secure. It provides easy access to all possible
-    SuperKISS64 sequences. NewSuperKISS64Rand may be wrapped by math/rand.New as
-    in this example:
+    SuperKISS64 sequences. To provide an initialization with the full range
+    of sequences that is repeatable, call NewSuperKISS64Rand then immediately
+    call SaveState or SK64SaveState. Then to reuse the state call LoadState or
+    SK64LoadState. NewSuperKISS64Rand may be wrapped by math/rand.New as in this
+    example:
 
         import "math/rand"
         r := rand.New(NewSuperKISS64Rand())
 
     Then r can use methods provided by math/rand, such as r.Int31n(). r.Perm()
-    and r.Shuffle().
-
-    See function TestSK64SaveLoadWrappedState in SuperKISS64_test.go for an
-    example of how to save and load the state of a wrapped generator.
+    and r.Shuffle(). See function TestSK64SaveLoadWrapped in SuperKISS64_test.go
+    for an example of how to save and load the state of a wrapped generator.
 
 func SK64LoadState(infile string) (r *SK64, err error)
     SK64LoadState returns a SuperKISS64 generator r from an XML file written
@@ -159,10 +164,9 @@ func (r *SK64) Read(p []byte) (n int, err error)
 func (r *SK64) SaveState(outfile string) (err error)
     SaveState saves the state of SuperKISS64 PRNG r as XML to a file named by
     outfile. The saved file size is about 524 KB. If outfile ends with ".gz"
-    then a gzip'ped XML file is written, and the typical saved file size is
-    about 212 KB. Either type of saved state file can be loaded by calling
-    either SK64LoadState or LoadState with the same file name used to save the
-    file.
+    a gzip'ped XML file is written, and the typical saved file size is about
+    212 KB. Either type of saved state file can be loaded by calling either
+    SK64LoadState or LoadState with the same file name used to save the file.
 
     To view a SuperKISS64-saved XML file with line breaks added:
 
@@ -173,21 +177,24 @@ func (r *SK64) SaveState(outfile string) (err error)
         $ gzcat myFile.xml.gz | xmllint --format - | less
 
 func (r *SK64) Seed(seed int64)
-    Seed initializes a SuperKISS64 instance with seed. Call with seed == 0
-    for SuperKISS64_test.go:TestSuperKISS64. Call with seed of any int64
-    value (except 0) otherwise. For a "random" seed, call Seed with argument
-    time.UnixNano().
+    Seed initializes a SuperKISS64 instance with seed. Call with seed == 0 for
+    SuperKISS64_test.go:TestSuperKISS64. Or call with a seed of any int64 value.
+    For a "random" seed, call Seed with argument time.Now().UnixNano().
 
 func (r *SK64) SeedArray(array []uint64)
-    SeedArray provides a full range of repeatable initializations (Seed has only
-    2^63-1 starting points with math/rand). Call SeedArray with a pointer to
-    an array of one or more random numbers. It is best to call SeedArray with
-    QSIZE64 random numbers, although any number of values is acceptable.
+    SeedArray is provided for compatibility with older versions. It is
+    deprecated. Use SeedFromSlice instead in new code.
 
 func (r *SK64) SeedFromCrypto()
     SeedFromCrypto does NOT make r cryptographically secure. It initializes r
     with random numbers from crypto/rand. SeedFromCrypto provides easy access to
     all possible SuperKISS64 sequences.
+
+func (r *SK64) SeedFromSlice(s []uint64)
+    SeedFromSlice provides a full range of repeatable initializations (Seed has
+    only 2^63-1 starting points with math/rand). Call SeedFromSlice with a slice
+    of one or more random uint64 numbers. It is best to call SeedFromSlice with
+    QSIZE64 random numbers, although any number of values is acceptable.
 
 func (r *SK64) Uint64() (result uint64)
     Uint64 returns a 64-bit, uniformly distributed pseudorandom number from

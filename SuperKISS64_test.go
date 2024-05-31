@@ -1,4 +1,4 @@
-// $Id: SuperKISS64_test.go,v 1.23 2024-05-24 16:22:45-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.28 2024-05-30 15:43:39-04 ron Exp $
 
 package SuperKISS64
 
@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"testing"
-	"time"
 )
 
 const alpha = 0.00001 // acceptable p-value limit
@@ -38,7 +37,7 @@ const alpha = 0.00001 // acceptable p-value limit
 	anywhere, for any reason, absolutely free of charge.
 */
 
-// $Id: SuperKISS64_test.go,v 1.23 2024-05-24 16:22:45-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.28 2024-05-30 15:43:39-04 ron Exp $
 
 /*
 c:\Users\Ron\go\src>go run TestPValue.go 255 160
@@ -183,8 +182,16 @@ func LogGamma(N float64) float64 {
 }
 
 func TestCryptoSource(t *testing.T) {
+	pValueTest(NewSuperKISS64Rand(), t)
+
 	rng := rand.New(NewCryptoSource())
-	rng.Seed(time.Now().UnixNano()) // no effect
+	rng.Seed(1) // should be noop
+	notWant := rng.Uint64()
+	rng.Seed(1) // should be noop
+	got := rng.Uint64()
+	if got == notWant {
+		t.Errorf("CryptoSource Seed() is not a noop")
+	}
 	b := make([]byte, 2047)
 	for i := 0; i < 10000; i++ {
 		rng.Uint64()
@@ -202,18 +209,19 @@ func TestSuperKISS64(t *testing.T) {
 	// George Marsaglia's test
 	var got uint64
 	const want = 4013566000157423768
-	r := New()
+
+	r := NewSuperKISS64(0) // deterministic initialization
 	for i := 0; i < 1000000000; i++ {
 		got = r.Uint64()
 	}
 
 	if got != want {
-		t.Errorf("want %v but got %d", want, got)
+		t.Errorf("want %d but got %d", want, got)
 	}
-	pValueTest(NewSuperKISS64Rand(), t)
+	pValueTest(New(), t)
 }
 
-func TestNewSuperKISS64Array(t *testing.T) {
+func TestNewSuperKISS64Slice(t *testing.T) {
 	var q = []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
 	// x data is taken from SuperKISS64_test.c output
@@ -267,7 +275,7 @@ func TestSK64SaveLoadState(t *testing.T) {
 
 var Www []int
 
-func TestSK64SaveLoadWrappedState(t *testing.T) {
+func TestSK64SaveLoadWrapped(t *testing.T) {
 	fName := "SuperKISS64SaveLoadWrappedTest.xml.gz"
 	var err error
 	var want, got []int
