@@ -88,9 +88,9 @@ func New() *SK64
 
 func NewSuperKISS64(seed int64) *SK64
     NewSuperKISS64 allocates a new SuperKISS64 PRNG. Parameter seed determines
-    whether to initialize for testing or not. Seed with 0 for George
-    Marsaglia's test; otherwise use any int64 seed. Approximately 1.0e+19
-    sequences are possible. If a larger number of starting states is desired,
+    whether to initialize for testing or not. Seed with 0 for George Marsaglia's
+    test; otherwise use any int64 seed. Approximately 1.0e+19 sequences are
+    possible. If a larger number of starting states/sequences is desired,
     use NewSuperKISS64FromSlice or NewSuperKISS64Rand. NewSuperKISS64 may be
     wrapped by math/rand.New as in this example:
 
@@ -114,9 +114,9 @@ func NewSuperKISS64FromSlice(s []uint64) *SK64
         import "math/rand"
         r := rand.New(NewSuperKISS64Array(q))
 
-    Then r can use methods provided by math/rand, such as r.Int31n() and
-    r.Shuffle(). See function TestSK64SaveLoadWrapped in SuperKISS64_test.go for
-    an example of how to save and load the state of a wrapped generator.
+    Then r can use methods provided by math/rand, such as r.Int31n(), r.Perm()
+    and r.Shuffle(). See function TestSK64SaveLoadWrapped in SuperKISS64_test.go
+    for an example of how to save and load the state of a wrapped generator.
 
 func NewSuperKISS64Rand() *SK64
     NewSuperKISS64Rand allocates a new SuperKISS64 PRNG and initializes it
@@ -131,7 +131,7 @@ func NewSuperKISS64Rand() *SK64
         import "math/rand"
         r := rand.New(NewSuperKISS64Rand())
 
-    Then r can use methods provided by math/rand, such as r.Int31n(). r.Perm()
+    Then r can use methods provided by math/rand, such as r.Int31n(), r.Perm()
     and r.Shuffle(). See function TestSK64SaveLoadWrapped in SuperKISS64_test.go
     for an example of how to save and load the state of a wrapped generator.
 

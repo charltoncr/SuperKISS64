@@ -28,7 +28,7 @@ get the result I do. It should take around 20 seconds.
 
 // Ron Charlton (RC) code:
 
-// $Id: SuperKISS64.go,v 1.101 2024-05-31 10:24:19-04 ron Exp $
+// $Id: SuperKISS64.go,v 1.106 2024-06-06 12:01:07-04 ron Exp $
 
 /* To find 10^397525 on Windows (with unxutils' GNU awk, bc, tr & wc):
  * awk "BEGIN{printf(\"5*2^^1320480*(2^^64-1)\n\")}" | bc -q | tr -cd "0-9" | wc -c
@@ -106,7 +106,7 @@ func New() *SK64 {
 // whether to initialize for testing or not.
 // Seed with 0 for George Marsaglia's test; otherwise use any int64 seed.
 // Approximately 1.0e+19 sequences are possible.
-// If a larger number of starting states is desired, use
+// If a larger number of starting states/sequences is desired, use
 // NewSuperKISS64FromSlice or NewSuperKISS64Rand.
 // NewSuperKISS64 may be wrapped by math/rand.New as in this example:
 //
@@ -119,7 +119,7 @@ func New() *SK64 {
 // example of how to save and load the state of a wrapped generator.
 func NewSuperKISS64(seed int64) *SK64 {
 	r := &SK64{
-		Q: make([]uint64, QSIZE64, QSIZE64),
+		Q: make([]uint64, QSIZE64),
 	}
 	r.Seed(seed)
 	return r
@@ -137,13 +137,13 @@ func NewSuperKISS64(seed int64) *SK64 {
 //	import "math/rand"
 //	r := rand.New(NewSuperKISS64Rand())
 //
-// Then r can use methods provided by math/rand, such as r.Int31n(). r.Perm()
+// Then r can use methods provided by math/rand, such as r.Int31n(), r.Perm()
 // and r.Shuffle().
 // See function TestSK64SaveLoadWrapped in SuperKISS64_test.go for an
 // example of how to save and load the state of a wrapped generator.
 func NewSuperKISS64Rand() *SK64 {
 	r := &SK64{
-		Q: make([]uint64, QSIZE64, QSIZE64),
+		Q: make([]uint64, QSIZE64),
 	}
 	r.SeedFromCrypto()
 	return r
@@ -157,13 +157,13 @@ func NewSuperKISS64Rand() *SK64 {
 //	import "math/rand"
 //	r := rand.New(NewSuperKISS64Array(q))
 //
-// Then r can use methods provided by math/rand, such as r.Int31n()
+// Then r can use methods provided by math/rand, such as r.Int31n(), r.Perm()
 // and r.Shuffle().
 // See function TestSK64SaveLoadWrapped in SuperKISS64_test.go for an
 // example of how to save and load the state of a wrapped generator.
 func NewSuperKISS64FromSlice(s []uint64) *SK64 {
 	r := &SK64{
-		Q: make([]uint64, QSIZE64, QSIZE64),
+		Q: make([]uint64, QSIZE64),
 	}
 	r.SeedFromSlice(s)
 	return r
@@ -227,10 +227,10 @@ func SK64SaveState(r *SK64, outfile string) (err error) {
 	return r.SaveState(outfile)
 }
 
-// LoadState loads SuperKISS64 state r from an
-// XML file written earlier with SaveState or SK64SaveState.
-// Infile should match the file name used to save the state.  If
-// infile ends with ".gz" then LoadState expects a gzip'ped XML file.
+// LoadState loads SuperKISS64 state r from an XML file written earlier
+// with SaveState or SK64SaveState.
+// Infile should match the file name used to save the state.
+// If infile ends with ".gz" then LoadState expects a gzip'ped XML file.
 // If an error occurs r is left unchanged.
 func (r *SK64) LoadState(infile string) (err error) {
 	var in *os.File
@@ -266,8 +266,7 @@ func (r *SK64) LoadState(infile string) (err error) {
 // (nil, err) is returned if an error occurs.
 func SK64LoadState(infile string) (r *SK64, err error) {
 	r = &SK64{}
-	err = r.LoadState(infile)
-	if err != nil {
+	if err = r.LoadState(infile); err != nil {
 		r = nil
 	}
 	return

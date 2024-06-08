@@ -1,4 +1,4 @@
-// $Id: SuperKISS64_test.go,v 1.28 2024-05-30 15:43:39-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.34 2024-06-07 15:42:40-04 ron Exp $
 
 package SuperKISS64
 
@@ -37,7 +37,7 @@ const alpha = 0.00001 // acceptable p-value limit
 	anywhere, for any reason, absolutely free of charge.
 */
 
-// $Id: SuperKISS64_test.go,v 1.28 2024-05-30 15:43:39-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.34 2024-06-07 15:42:40-04 ron Exp $
 
 /*
 c:\Users\Ron\go\src>go run TestPValue.go 255 160
@@ -235,7 +235,7 @@ func TestNewSuperKISS64Slice(t *testing.T) {
 		0.68242169093785998,
 	}
 
-	r := NewSuperKISS64Array(q)
+	r := NewSuperKISS64FromSlice(q)
 
 	for i := 0; i < len(x); i++ {
 		n := r.Float64()
@@ -248,15 +248,15 @@ func TestNewSuperKISS64Slice(t *testing.T) {
 func TestSK64SaveLoadState(t *testing.T) {
 	fName := "SuperKISS64SaveLoadTest.xml"
 	var w []uint64
-	var r, z *SK64
+	var z *SK64
 	var err error
 
-	r = NewSuperKISS64Rand() // random initialization
+	r := NewSuperKISS64Rand() // random initialization
 
-	if err = r.SaveState(fName); err != nil {
+	if err = SK64SaveState(r, fName); err != nil {
 		t.Fatalf("SaveState returned error: %v", err)
 	}
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 33000; i++ {
 		w = append(w, r.Uint64())
 	}
 	r.Uint64()
@@ -276,9 +276,10 @@ func TestSK64SaveLoadState(t *testing.T) {
 var Www []int
 
 func TestSK64SaveLoadWrapped(t *testing.T) {
+	// This test also demonstrates how to save and load an SK64 state that is
+	// wrapped in math/rand.New.
 	fName := "SuperKISS64SaveLoadWrappedTest.xml.gz"
 	var err error
-	var want, got []int
 	const n = QSIZE64 + 100 // use every Q value at least once
 
 	c := NewSuperKISS64Rand() // random initialization
@@ -290,15 +291,20 @@ func TestSK64SaveLoadWrapped(t *testing.T) {
 	if err = c.SaveState(fName); err != nil {
 		t.Fatalf("SaveState returned error: %v", err)
 	}
-	want = r.Perm(n) // next values after saving state are used
+	want := r.Perm(n) // next permutation after saving state is remembered
 
 	Www = r.Perm(n + 37) // change state by running PRNG
+
+	// Could do this (error check omitted for brevity):
+	//		c, err = SK64LoadState(fName)
+	//		r = rand.New(c)
 
 	if err = c.LoadState(fName); err != nil {
 		t.Fatalf("LoadState returned error: %v", err)
 	}
-	r = rand.New(c) // new math/rand with same state as saved earlier
-	got = r.Perm(n)
+
+	got := r.Perm(n) // r is same math/rand with same state as saved earlier
+
 	// Do got slice values equal want slice values?
 	for i := range want {
 		if got[i] != want[i] {
