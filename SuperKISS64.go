@@ -28,7 +28,7 @@ get the result I do. It should take around 20 seconds.
 
 // Ron Charlton (RC) code:
 
-// $Id: SuperKISS64.go,v 1.106 2024-06-06 12:01:07-04 ron Exp $
+// $Id: SuperKISS64.go,v 2.3 2024-06-18 10:16:47-04 ron Exp $
 
 /* To find 10^397525 on Windows (with unxutils' GNU awk, bc, tr & wc):
  * awk "BEGIN{printf(\"5*2^^1320480*(2^^64-1)\n\")}" | bc -q | tr -cd "0-9" | wc -c
@@ -58,7 +58,7 @@ import (
 	"time"
 )
 
-// Derived from GM C code:
+// Derived by RC from GM C code:
 
 // QSIZE64 is the size of array Q.
 const QSIZE64 = 20632
@@ -93,7 +93,7 @@ func xs(x uint64) uint64 {
 
 var vvv uint64
 
-// New allocates a SuperKISS64 PRNG with a "random" seed.
+// New allocates a SuperKISS64 PRNG and initializes it with a "random" seed.
 // It is useful when repeating a sequence is not required.
 // Approximately 1.0e+19 sequences are possible.
 // See also NewSuperKISS64, NewSuperKISS64Rand and NewSuperKISS64FromSlice.
@@ -103,7 +103,7 @@ func New() *SK64 {
 }
 
 // NewSuperKISS64 allocates a new SuperKISS64 PRNG.  Parameter seed determines
-// whether to initialize for testing or not.
+// whether or not to initialize for testing.
 // Seed with 0 for George Marsaglia's test; otherwise use any int64 seed.
 // Approximately 1.0e+19 sequences are possible.
 // If a larger number of starting states/sequences is desired, use
@@ -188,7 +188,7 @@ func NewSuperKISS64Array(q []uint64) *SK64 {
 //
 // OR
 //
-//	$ gzcat myFile.xml.gz | xmllint --format - | less
+//	$ gzip -cd myFile.xml.gz | xmllint --format - | less
 func (r *SK64) SaveState(outfile string) (err error) {
 	var out *os.File
 	var gw *gzip.Writer
@@ -199,19 +199,27 @@ func (r *SK64) SaveState(outfile string) (err error) {
 	if out, err = os.Create(outfile); err != nil {
 		return
 	}
-	defer out.Close()
+	defer func() {
+		err = errors.Join(err, out.Close())
+	}()
 	w := io.Writer(out)
 	if strings.HasSuffix(outfile, ".gz") {
 		best := gzip.BestCompression
 		if gw, err = gzip.NewWriterLevel(out, best); err != nil {
 			return
 		}
-		defer gw.Close()
+		defer func() {
+			err = errors.Join(err, gw.Close())
+		}()
 		w = gw
 	}
 	io.WriteString(w, xml.Header)
-	encoder := xml.NewEncoder(w)
-	return encoder.Encode(r)
+	e := xml.NewEncoder(w)
+	defer func() {
+		err = errors.Join(err, e.Close())
+	}()
+	err = e.Encode(r)
+	return
 }
 
 // SK64SaveState saves a SuperKISS64 state r to an XML file named by outfile.
@@ -242,13 +250,17 @@ func (r *SK64) LoadState(infile string) (err error) {
 	if in, err = os.Open(infile); err != nil {
 		return
 	}
-	defer in.Close()
+	defer func() {
+		err = errors.Join(err, in.Close())
+	}()
 	rdr := io.Reader(in)
 	if strings.HasSuffix(infile, ".gz") {
 		if gr, err = gzip.NewReader(in); err != nil {
 			return
 		}
-		defer gr.Close()
+		defer func() {
+			err = errors.Join(err, gr.Close())
+		}()
 		rdr = gr
 	}
 	q := &SK64{}
@@ -274,7 +286,7 @@ func SK64LoadState(infile string) (r *SK64, err error) {
 
 // Seed added to C code by Ron Charlton in 2017.
 
-// Seed initializes a SuperKISS64 instance with seed.
+// Seed initializes a SuperKISS64 instance r with seed.
 // Call with seed == 0 for SuperKISS64_test.go:TestSuperKISS64.  Or call with
 // a seed of any int64 value.  For a "random" seed,
 // call Seed with argument time.Now().UnixNano().
@@ -384,8 +396,9 @@ func (r *SK64) refill() uint64 {
 	return r.Q[0]
 }
 
-// Uint64 returns a 64-bit, uniformly distributed pseudorandom number from
-// SuperKISS64.  This method implements the math/rand.Source64 interface.
+// Uint64 returns a 64-bit, uniformly distributed pseudorandom number
+// in the range [0,2^64) from SuperKISS64.  This method implements the
+// math/rand.Source64 interface.
 func (r *SK64) Uint64() (result uint64) {
 	if !r.Seeded {
 		r.Seed(1)
@@ -404,8 +417,9 @@ func (r *SK64) Uint64() (result uint64) {
 
 // RC code:
 
-// Int63 returns a uniformly distributed pseudorandom number [0,2^63) from
-// SuperKISS64.  This method implements the math/rand.Source interface.
+// Int63 returns a uniformly distributed pseudorandom number in the range
+// [0,2^63) from SuperKISS64.  This method implements the math/rand.Source
+// interface.
 func (r *SK64) Int63() int64 {
 	return int64(r.Uint64() >> 1)
 }
@@ -436,5 +450,5 @@ func (r *SK64) Read(p []byte) (n int, err error) {
 			n++
 		}
 	}
-	return n, nil
+	return
 }
