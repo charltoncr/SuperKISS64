@@ -1,4 +1,4 @@
-// $Id: SuperKISS64_test.go,v 1.34 2024-06-07 15:42:40-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.36 2024-06-23 06:22:42-04 ron Exp $
 
 package SuperKISS64
 
@@ -37,7 +37,7 @@ const alpha = 0.00001 // acceptable p-value limit
 	anywhere, for any reason, absolutely free of charge.
 */
 
-// $Id: SuperKISS64_test.go,v 1.34 2024-06-07 15:42:40-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.36 2024-06-23 06:22:42-04 ron Exp $
 
 /*
 c:\Users\Ron\go\src>go run TestPValue.go 255 160
@@ -243,6 +243,7 @@ func TestNewSuperKISS64Slice(t *testing.T) {
 			t.Errorf("want %v but got %v", x[i], n)
 		}
 	}
+	pValueTest(r, t)
 }
 
 func TestSK64SaveLoadState(t *testing.T) {
@@ -291,7 +292,7 @@ func TestSK64SaveLoadWrapped(t *testing.T) {
 	if err = c.SaveState(fName); err != nil {
 		t.Fatalf("SaveState returned error: %v", err)
 	}
-	want := r.Perm(n) // next permutation after saving state is remembered
+	want := r.Perm(n) // remember next permutation after saving state
 
 	Www = r.Perm(n + 37) // change state by running PRNG
 

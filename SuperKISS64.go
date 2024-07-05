@@ -1,6 +1,6 @@
 // SuperKISS64.go - an extremely long period pseudorandom number generator by
-// George Marsaglia from http://forums.silverfrost.com/viewtopic.php?t=1480
-// posted 2009-11-22, modified and ported to Go by Ron Charlton 2021-06-03.
+// George Marsaglia, from http://forums.silverfrost.com/viewtopic.php?t=1480
+// posted 2009-11-22, augmented/ported to Go by Ron Charlton 2021-06-03.
 // For math only see
 // https://www.thecodingforums.com/threads/superkiss-for-32-and-64-bit-rngs-in-both-c-and-fortran.706893/
 //
@@ -14,7 +14,7 @@
 // Ron Charlton's additions are public domain as per CC0 1.0; see
 // <https://creativecommons.org/publicdomain/zero/1.0/> for information.
 
-// George Marsaglia (GM):
+// George Marsaglia (GM) code:
 
 /*
 --------------------------------------------------------
@@ -28,22 +28,32 @@ get the result I do. It should take around 20 seconds.
 
 // Ron Charlton (RC) code:
 
-// $Id: SuperKISS64.go,v 2.3 2024-06-18 10:16:47-04 ron Exp $
+// $Id: SuperKISS64.go,v 2.14 2024-07-05 12:08:20-04 ron Exp $
 
-/* To find 10^397525 on Windows (with unxutils' GNU awk, bc, tr & wc):
- * awk "BEGIN{printf(\"5*2^^1320480*(2^^64-1)\n\")}" | bc -q | tr -cd "0-9" | wc -c
- * On macOS/Linux:
- * echo "5*2^1320480*(2^64-1)" | bc -q | tr -cd "0-9" | wc -c
- */
+// To run the GM test suggested above, type "go test" in this file's
+// directory.  SuperKISS64_test.go and cryptosource.go must also be present.
+
+// To find 10^397524 on Windows (with unxutils' GNU awk, bc, tr & wc):
+// awk "BEGIN{printf(\"5*2^^1320480*(2^^64-1)\n\")}" | bc -q | tr -cd "0-9" | wc -c
+// On macOS/Linux:
+// echo "5*2^1320480*(2^64-1)" | bc -q | tr -cd "0-9" | wc -c
 
 // SuperKISS64 is useful when an extremely large number of possible random
 // sequences is needed.  For example, to fairly shuffle a deck of 52 cards, a
 // generator capable of 52! different starting states and sequences is required.
-// 52! is approximately 8.0e+67.  math/rand has only about 1.0e+19 starting
-// states and sequences.  SuperKISS64 has about 1.0e+397525 starting states
+// 52! is approximately 10^68.  math/rand has only about 10^19 starting
+// states and sequences.  SuperKISS64 has more than 10^397524 starting states
 // and sequences.
 //
-// SuperKISS64 passes all dieharder version 3.31.1 tests.
+// SuperKISS64 passes all dieharder version 3.31.1 tests using George
+// Marsaglia's acceptable alpha of 0.00001 for PRNGs.
+// Typical runs of SuperKISS64 with dieharder yield one or a few WEAK results,
+// but not always on the same particular sub-tests.  This behavior is also
+// exhibited by a true cryptographically safe PRNG with dieharder.
+// George Marsaglia says this is expected behavior in running many tests.
+//
+// SuperKISS64.go is dependent on cryptosource.go. cryptosource.go may be
+// used without SuperKISS64.go.
 package SuperKISS64
 
 import (
@@ -58,9 +68,9 @@ import (
 	"time"
 )
 
-// Derived by RC from GM C code:
+// Ported by RC from GM C code:
 
-// QSIZE64 is the size of array Q.
+// QSIZE64 specifies len(SK64.Q).
 const QSIZE64 = 20632
 
 // SK64 is the state for SuperKISS64 methods.  SuperKISS64's period is
@@ -95,7 +105,7 @@ var vvv uint64
 
 // New allocates a SuperKISS64 PRNG and initializes it with a "random" seed.
 // It is useful when repeating a sequence is not required.
-// Approximately 1.0e+19 sequences are possible.
+// Approximately 10^19 sequences are possible.
 // See also NewSuperKISS64, NewSuperKISS64Rand and NewSuperKISS64FromSlice.
 func New() *SK64 {
 	n := int64(xs(uint64(time.Now().UnixNano())))
@@ -105,10 +115,10 @@ func New() *SK64 {
 // NewSuperKISS64 allocates a new SuperKISS64 PRNG.  Parameter seed determines
 // whether or not to initialize for testing.
 // Seed with 0 for George Marsaglia's test; otherwise use any int64 seed.
-// Approximately 1.0e+19 sequences are possible.
+// Approximately 10^19 sequences are possible.
 // If a larger number of starting states/sequences is desired, use
 // NewSuperKISS64FromSlice or NewSuperKISS64Rand.
-// NewSuperKISS64 may be wrapped by math/rand.New as in this example:
+// NewSuperKISS64 can be wrapped with math/rand.New as in this example:
 //
 //	import "math/rand"
 //	r := rand.New(NewSuperKISS64(seed))
@@ -125,14 +135,18 @@ func NewSuperKISS64(seed int64) *SK64 {
 	return r
 }
 
-// NewSuperKISS64Rand allocates a new SuperKISS64 PRNG and initializes it with
-// random numbers from crypto/rand.  This does NOT make SuperKISS64
-// cryptographically secure.  It provides easy access to all possible
-// SuperKISS64 sequences.  To provide an initialization with the full range of
-// sequences that is repeatable, call NewSuperKISS64Rand then immediately call
-// SaveState or SK64SaveState.  Then to reuse the state call LoadState or
+// NewSuperKISS64Rand does NOT make SuperKISS64 cryptographically secure.
+// It allocates a new SuperKISS64 PRNG and initializes it with
+// random numbers from crypto/rand.  Again, this does NOT make SuperKISS64
+// cryptographically secure.  It provides easy access to all 10^397524
+// possible SuperKISS64 sequences.
+//
+// To provide a repeatable initialization with the full range of possible
+// sequences, call NewSuperKISS64Rand then immediately call SaveState
+// or SK64SaveState.  Then to use that state again, call LoadState or
 // SK64LoadState.
-// NewSuperKISS64Rand may be wrapped by math/rand.New as in this example:
+//
+// NewSuperKISS64Rand can be wrapped with math/rand.New as in this example:
 //
 //	import "math/rand"
 //	r := rand.New(NewSuperKISS64Rand())
@@ -152,10 +166,11 @@ func NewSuperKISS64Rand() *SK64 {
 // NewSuperKISS64FromSlice allocates a new SuperKISS64 PRNG and
 // initializes it using slice s. Slice s should contain QSIZE64 or more "random"
 // values, although fewer or more numbers are acceptable.
-// NewSuperKISS64FromSlice may be wrapped by math/rand.New as in this example:
+// If len(s) > QSIZE64, only the first QSIZE64 elements in s are used.
+// NewSuperKISS64FromSlice can be wrapped with math/rand.New as in this example:
 //
 //	import "math/rand"
-//	r := rand.New(NewSuperKISS64Array(q))
+//	r := rand.New(NewSuperKISS64FromSlice(q))
 //
 // Then r can use methods provided by math/rand, such as r.Int31n(), r.Perm()
 // and r.Shuffle().
@@ -177,7 +192,7 @@ func NewSuperKISS64Array(q []uint64) *SK64 {
 
 // SaveState saves the state of SuperKISS64 PRNG r as XML to a file named
 // by outfile.  The saved file size is about 524 KB.
-// If outfile ends with ".gz" a gzip'ped XML file is written, and
+// If outfile ends with ".gz" a gzip'ped XML file is saved, and
 // the typical saved file size is about 212 KB.  Either type of saved state
 // file can be loaded by calling either SK64LoadState or LoadState with the
 // same file name used to save the file.
@@ -194,7 +209,7 @@ func (r *SK64) SaveState(outfile string) (err error) {
 	var gw *gzip.Writer
 
 	if r == nil {
-		return errors.New("SuperKISS64.SaveState called with nil r")
+		return errors.New("SuperKISS64:SaveState called with nil r")
 	}
 	if out, err = os.Create(outfile); err != nil {
 		return
@@ -224,18 +239,18 @@ func (r *SK64) SaveState(outfile string) (err error) {
 
 // SK64SaveState saves a SuperKISS64 state r to an XML file named by outfile.
 // The file size is about 524 KB.
-// If outfile ends with ".gz" SK64SaveState writes a gzip'ped XML file;
-// then the typical saved file size is about 212 KB.  Either type of saved state
-// file can be loaded by calling either SK64LoadState or LoadState with the
-// same file name used to save the file.
+// If outfile ends with ".gz" SK64SaveState saves a gzip'ped XML file;
+// then the typical saved file size is about 212 KB.  Either type of saved
+// state file can be loaded by calling either SK64LoadState or LoadState
+// with the same file name used to save the file.
 func SK64SaveState(r *SK64, outfile string) (err error) {
 	if r == nil {
-		return errors.New("SuperKISS64.SK64SaveState called with nil r")
+		return errors.New("SuperKISS64:SK64SaveState called with nil r")
 	}
 	return r.SaveState(outfile)
 }
 
-// LoadState loads SuperKISS64 state r from an XML file written earlier
+// LoadState loads SuperKISS64 state r from an XML state file saved earlier
 // with SaveState or SK64SaveState.
 // Infile should match the file name used to save the state.
 // If infile ends with ".gz" then LoadState expects a gzip'ped XML file.
@@ -245,7 +260,7 @@ func (r *SK64) LoadState(infile string) (err error) {
 	var gr *gzip.Reader
 
 	if r == nil {
-		return errors.New("SuperKISS64.LoadState called with nil r")
+		return errors.New("SuperKISS64:LoadState called with nil r")
 	}
 	if in, err = os.Open(infile); err != nil {
 		return
@@ -271,8 +286,8 @@ func (r *SK64) LoadState(infile string) (err error) {
 	return
 }
 
-// SK64LoadState returns a SuperKISS64 generator r from an
-// XML file written earlier with SaveState or SK64SaveState.  Infile should
+// SK64LoadState returns a SuperKISS64 generator r loaded from an
+// XML state file saved earlier with SaveState or SK64SaveState.  Infile should
 // match the file name used to save the state.  If infile ends with ".gz"
 // then SK64LoadState expects a gzip'ped XML file.
 // (nil, err) is returned if an error occurs.
@@ -289,7 +304,7 @@ func SK64LoadState(infile string) (r *SK64, err error) {
 // Seed initializes a SuperKISS64 instance r with seed.
 // Call with seed == 0 for SuperKISS64_test.go:TestSuperKISS64.  Or call with
 // a seed of any int64 value.  For a "random" seed,
-// call Seed with argument time.Now().UnixNano().
+// call Seed with argument time.Now().UnixNano(), as New does.
 func (r *SK64) Seed(seed int64) {
 	r.Seeded = true
 
@@ -320,7 +335,8 @@ func (r *SK64) Seed(seed int64) {
 // only 2^63-1 starting points with math/rand). Call SeedFromSlice with a
 // slice of one or more random uint64 numbers.
 // It is best to call SeedFromSlice with QSIZE64 random numbers, although
-// any number of values is acceptable.
+// any number of values is acceptable. If len(s) > QSIZE64, only the first
+// QSIZE64 elements in s are used.
 func (r *SK64) SeedFromSlice(s []uint64) {
 	var i, j, n uint64
 	count := uint64(len(s))
@@ -363,7 +379,8 @@ func (r *SK64) SeedArray(array []uint64) {
 
 // SeedFromCrypto does NOT make r cryptographically secure.
 // It initializes r with random numbers from crypto/rand.
-// SeedFromCrypto provides easy access to all possible SuperKISS64 sequences.
+// SeedFromCrypto provides easy access to all 10^397524 possible
+// SuperKISS64 sequences.
 func (r *SK64) SeedFromCrypto() {
 	r.Seeded = true
 	cr := NewCryptoSource()
@@ -379,7 +396,7 @@ func (r *SK64) SeedFromCrypto() {
 	}
 }
 
-// Derived by RC from GM C code:
+// Ported by RC from GM C code:
 
 func (r *SK64) refill() uint64 {
 	var z, h uint64
@@ -424,7 +441,7 @@ func (r *SK64) Int63() int64 {
 	return int64(r.Uint64() >> 1)
 }
 
-// Float64 provides a uniformly-distributed, pseudorandom float64 value in
+// Float64 returns a uniformly-distributed, pseudorandom float64 value in
 // range [0.0,1.0) from SuperKISS64. It assumes IEEE 754-1985 or later
 // floating point.
 func (r *SK64) Float64() float64 {
@@ -435,9 +452,9 @@ func (r *SK64) Float64() float64 {
 	return math.Float64frombits(n) - 1.0
 }
 
-// Read fills p with pseudorandom bytes from SuperKISS64.  This method implements
-// the io.Reader interface.  The returned length n is always len(p) and err
-// is always nil.
+// Read fills p with pseudorandom bytes from SuperKISS64.  This method
+// implements the io.Reader interface.  The returned length n is always
+// len(p) and err is always nil.
 func (r *SK64) Read(p []byte) (n int, err error) {
 	for ; n+8 <= len(p); n += 8 {
 		binary.LittleEndian.PutUint64(p[n:], r.Uint64())
