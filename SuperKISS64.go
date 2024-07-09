@@ -28,7 +28,7 @@ get the result I do. It should take around 20 seconds.
 
 // Ron Charlton (RC) code:
 
-// $Id: SuperKISS64.go,v 2.14 2024-07-05 12:08:20-04 ron Exp $
+// $Id: SuperKISS64.go,v 2.17 2024-07-08 06:36:37-04 ron Exp $
 
 // To run the GM test suggested above, type "go test" in this file's
 // directory.  SuperKISS64_test.go and cryptosource.go must also be present.
@@ -38,8 +38,9 @@ get the result I do. It should take around 20 seconds.
 // On macOS/Linux:
 // echo "5*2^1320480*(2^64-1)" | bc -q | tr -cd "0-9" | wc -c
 
-// SuperKISS64 is useful when an extremely large number of possible random
-// sequences is needed.  For example, to fairly shuffle a deck of 52 cards, a
+// SuperKISS64 is useful when a huge number of different possible
+// pseudorandom sequences is needed.
+// For example, to fairly shuffle a deck of 52 cards, a
 // generator capable of 52! different starting states and sequences is required.
 // 52! is approximately 10^68.  math/rand has only about 10^19 starting
 // states and sequences.  SuperKISS64 has more than 10^397524 starting states
@@ -379,6 +380,7 @@ func (r *SK64) SeedArray(array []uint64) {
 
 // SeedFromCrypto does NOT make r cryptographically secure.
 // It initializes r with random numbers from crypto/rand.
+// Again, SeedFromCrypto does NOT make r cryptographically secure.
 // SeedFromCrypto provides easy access to all 10^397524 possible
 // SuperKISS64 sequences.
 func (r *SK64) SeedFromCrypto() {
@@ -450,6 +452,17 @@ func (r *SK64) Float64() float64 {
 	// Double precision, Actual Exponent of 0.
 	n := (r.Uint64() >> 2) | 0x3FF0000000000000
 	return math.Float64frombits(n) - 1.0
+}
+
+// Float32 returns a uniformly-distributed, pseudorandom float32 value in
+// range [0.0,1.0) from SuperKISS64. It assumes IEEE 754-1985 or later
+// floating point.
+func (r *SK64) Float32() float32 {
+	// See the table in
+	// https://en.wikipedia.org/wiki/IEEE_754-1985#Range_and_precision,
+	// Single precision, Actual Exponent of 0.
+	n := uint32(r.Uint64())>>2 | 0x3F800000
+	return math.Float32frombits(n) - 1.0
 }
 
 // Read fills p with pseudorandom bytes from SuperKISS64.  This method

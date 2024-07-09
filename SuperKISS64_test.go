@@ -1,4 +1,4 @@
-// $Id: SuperKISS64_test.go,v 1.36 2024-06-23 06:22:42-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.40 2024-07-08 07:01:37-04 ron Exp $
 
 package SuperKISS64
 
@@ -37,7 +37,7 @@ const alpha = 0.00001 // acceptable p-value limit
 	anywhere, for any reason, absolutely free of charge.
 */
 
-// $Id: SuperKISS64_test.go,v 1.36 2024-06-23 06:22:42-04 ron Exp $
+// $Id: SuperKISS64_test.go,v 1.40 2024-07-08 07:01:37-04 ron Exp $
 
 /*
 c:\Users\Ron\go\src>go run TestPValue.go 255 160
@@ -246,6 +246,32 @@ func TestNewSuperKISS64Slice(t *testing.T) {
 	pValueTest(r, t)
 }
 
+func TestNewSuperKISS64float32(t *testing.T) {
+	var q = []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+	// x data is taken from the initial run of this function.
+	var x = []float32{
+		0.671484351,
+		0.316866279,
+		0.846276760,
+		0.228697777,
+		0.986213923,
+		0.573408365,
+		0.582391024,
+	}
+
+	r := NewSuperKISS64FromSlice(q)
+
+	for i := 0; i < len(x); i++ {
+		n := r.Float32()
+		if n != x[i] {
+			t.Errorf("want %v but got %.9f", x[i], n)
+			///t.Errorf("%.09f,", n)	// print for copying to x above
+		}
+	}
+	pValueTest(r, t)
+}
+
 func TestSK64SaveLoadState(t *testing.T) {
 	fName := "SuperKISS64SaveLoadTest.xml"
 	var w []uint64
@@ -384,6 +410,8 @@ var _ io.Reader = &SK64{}
 //\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 var v uint64
+var x float32
+var w []byte
 
 func BenchmarkCryptoSource(b *testing.B) {
 	b.SetBytes(8)
@@ -400,5 +428,25 @@ func BenchmarkSuperKISS64(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		v = r.Uint64()
+	}
+}
+
+func BenchmarkFloat32(b *testing.B) {
+	b.SetBytes(4)
+	r := NewSuperKISS64Rand()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		x = r.Float32()
+	}
+}
+
+func BenchmarkRead(b *testing.B) {
+	const size = 1e6
+	w = make([]byte, size)
+	b.SetBytes(size)
+	r := NewSuperKISS64Rand()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		r.Read(w)
 	}
 }

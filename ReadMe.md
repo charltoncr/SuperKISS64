@@ -1,7 +1,7 @@
 # SuperKISS64 Pseudorandom Number Generator
 
-SuperKISS64 is an extremely long period (more than 10^397524) pseudorandom number 
-generator by George Marsaglia, from 
+SuperKISS64.go is an extremely long period (more than
+10^397524) pseudorandom number generator by George Marsaglia, from 
 [http://forums.silverfrost.com/viewtopic.php?t=1480](http://forums.silverfrost.com/viewtopic.php?t=1480) (named SUPRKISS64.c by Marsaglia)
 posted 2009-11-22, modified and ported to Go by Ron Charlton 2021-06-03.
 
@@ -11,8 +11,8 @@ For math only see
 SuperKISS64 may be wrapped by math/rand.New; it implements math/rand Source and
 Source64.  It also implements an io.Reader.
 
-cryptosource.go is used only to initialize SuperKISS64. It doesn't make
+cryptosource.go is used only to initialize SuperKISS64. It does **NOT** make
 SuperKISS64 cryptographically secure.
-cryptosource.go may be used independent of SuperKISS64
+cryptosource.go may be used independently of SuperKISS64
 if desired.  It too implements math/rand Source, Source64 and io.Reader, and
 may be wrapped by math/rand.New.

@@ -1,6 +1,6 @@
 package SuperKISS64 // import "SuperKISS64"
 
-SuperKISS64 is useful when an extremely large number of possible random
+SuperKISS64 is useful when a huge number of different possible pseudorandom
 sequences is needed. For example, to fairly shuffle a deck of 52 cards,
 a generator capable of 52! different starting states and sequences is required.
 52! is approximately 10^68. math/rand has only about 10^19 starting states and
@@ -155,6 +155,11 @@ func SK64LoadState(infile string) (r *SK64, err error)
     SK64LoadState expects a gzip'ped XML file. (nil, err) is returned if an
     error occurs.
 
+func (r *SK64) Float32() float32
+    Float32 returns a uniformly-distributed, pseudorandom float32 value in range
+    [0.0,1.0) from SuperKISS64. It assumes IEEE 754-1985 or later floating
+    point.
+
 func (r *SK64) Float64() float64
     Float64 returns a uniformly-distributed, pseudorandom float64 value in range
     [0.0,1.0) from SuperKISS64. It assumes IEEE 754-1985 or later floating
@@ -203,8 +208,9 @@ func (r *SK64) SeedArray(array []uint64)
 
 func (r *SK64) SeedFromCrypto()
     SeedFromCrypto does NOT make r cryptographically secure. It initializes r
-    with random numbers from crypto/rand. SeedFromCrypto provides easy access to
-    all 10^397524 possible SuperKISS64 sequences.
+    with random numbers from crypto/rand. Again, SeedFromCrypto does NOT make
+    r cryptographically secure. SeedFromCrypto provides easy access to all
+    10^397524 possible SuperKISS64 sequences.
 
 func (r *SK64) SeedFromSlice(s []uint64)
     SeedFromSlice provides a full range of repeatable initializations (Seed
